@@ -13,6 +13,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // Clear loading message
       activitiesList.innerHTML = "";
 
+      // Clear activity select to avoid duplicate options on repeated loads
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
+
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
@@ -26,6 +29,63 @@ document.addEventListener("DOMContentLoaded", () => {
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
         `;
+
+        // Participants section (bulleted list)
+        const participantsDiv = document.createElement("div");
+        participantsDiv.className = "participants";
+
+        const participantsHeader = document.createElement("h5");
+        participantsHeader.textContent = "Participants";
+        participantsDiv.appendChild(participantsHeader);
+
+        const participantsListEl = document.createElement("ul");
+        participantsListEl.className = "participants-list";
+
+        if (!Array.isArray(details.participants) || details.participants.length === 0) {
+          const li = document.createElement("li");
+          li.className = "no-participants";
+          li.textContent = "No participants yet";
+          participantsListEl.appendChild(li);
+        } else {
+          details.participants.forEach((p) => {
+            const li = document.createElement("li");
+            li.className = "participant-item";
+
+            const span = document.createElement("span");
+            span.textContent = p;
+
+            const btn = document.createElement("button");
+            btn.className = "delete-btn";
+            btn.setAttribute("aria-label", `Unregister ${p} from ${name}`);
+            btn.innerHTML = "&times;";
+
+            btn.addEventListener("click", async () => {
+              try {
+                const resp = await fetch(
+                  `/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(p)}`,
+                  { method: "DELETE" }
+                );
+
+                if (resp.ok) {
+                  // refresh the activities list to reflect removal
+                  fetchActivities();
+                } else {
+                  const err = await resp.json().catch(() => ({}));
+                  console.error("Failed to unregister:", err);
+                }
+              } catch (error) {
+                console.error("Error unregistering participant:", error);
+              }
+            });
+
+            li.appendChild(span);
+            li.appendChild(btn);
+            participantsListEl.appendChild(li);
+          });
+        }
+
+        participantsDiv.appendChild(participantsListEl);
+        activityCard.appendChild(participantsDiv);
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+
+        // Refresh activities so the new participant shows up immediately
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";

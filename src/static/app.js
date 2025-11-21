@@ -49,7 +49,37 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           details.participants.forEach((p) => {
             const li = document.createElement("li");
-            li.textContent = p;
+            li.className = "participant-item";
+
+            const span = document.createElement("span");
+            span.textContent = p;
+
+            const btn = document.createElement("button");
+            btn.className = "delete-btn";
+            btn.setAttribute("aria-label", `Unregister ${p} from ${name}`);
+            btn.innerHTML = "&times;";
+
+            btn.addEventListener("click", async () => {
+              try {
+                const resp = await fetch(
+                  `/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(p)}`,
+                  { method: "DELETE" }
+                );
+
+                if (resp.ok) {
+                  // refresh the activities list to reflect removal
+                  fetchActivities();
+                } else {
+                  const err = await resp.json().catch(() => ({}));
+                  console.error("Failed to unregister:", err);
+                }
+              } catch (error) {
+                console.error("Error unregistering participant:", error);
+              }
+            });
+
+            li.appendChild(span);
+            li.appendChild(btn);
             participantsListEl.appendChild(li);
           });
         }
@@ -92,6 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+
+        // Refresh activities so the new participant shows up immediately
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
